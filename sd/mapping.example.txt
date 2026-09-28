@@ -1,0 +1,3 @@
+# NFCNoisy UID -> wav  (SETUP is the pairing card)
+# SETUP <uid>
+# <uid> /sounds/cat.wav
