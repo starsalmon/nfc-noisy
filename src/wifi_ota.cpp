@@ -18,6 +18,8 @@
 #error "secrets.h must define OTA_PASSWORD"
 #endif
 
+#include "web_config.h"
+
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
@@ -97,6 +99,7 @@ static void setup_ota_services() {
     ArduinoOTA.begin();
     s_ota_started = true;
     Serial.println("ArduinoOTA ready");
+    web_config_on_wifi_ready();
 }
 
 static void wifi_start_connect() {
@@ -115,6 +118,7 @@ void wifi_ota_begin() {
 void wifi_ota_loop() {
     if (s_ota_started) {
         ArduinoOTA.handle();
+        web_config_loop();
     }
 
     const wl_status_t st = WiFi.status();
