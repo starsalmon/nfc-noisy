@@ -63,16 +63,32 @@ bool volume_step_down() {
     return volume_set_percent(next < 0 ? 0 : next);
 }
 
-int32_t volume_scale_i32(int32_t sample) {
+int32_t volume_pcm16_to_i32(int16_t pcm) {
     const float g = volume_gain();
-    const float scaled = (float)sample * g;
-    if (scaled > 2147483647.0f) {
-        return INT32_MAX;
+    const float scaled = (float)pcm * g;
+    int32_t s;
+    if (scaled >= 32767.0f) {
+        s = 32767;
+    } else if (scaled <= -32768.0f) {
+        s = -32768;
+    } else {
+        s = (int32_t)scaled;
     }
-    if (scaled < -2147483648.0f) {
-        return INT32_MIN;
+    return s << 16;
+}
+
+int32_t volume_pcm8_to_i32(int8_t pcm) {
+    const float g = volume_gain();
+    const float scaled = (float)pcm * g;
+    int32_t s;
+    if (scaled >= 127.0f) {
+        s = 127;
+    } else if (scaled <= -128.0f) {
+        s = -128;
+    } else {
+        s = (int32_t)scaled;
     }
-    return (int32_t)scaled;
+    return s << 24;
 }
 
 int volume_scale_amp(int amp16) {
