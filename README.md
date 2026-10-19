@@ -88,6 +88,15 @@ Edit `/mapping.txt` on a computer if you would rather type UIDs by hand. Serial 
 
 Connection runs in the **background** after boot. If the network is down, NFC and audio still work; serial logs Wi-Fi state every few seconds and retries every 15–30 s. When connected, serial shows IP and `nfcnoisy.local`.
 
+## Volume (all boards)
+
+- **0–100%** in **5%** steps, stored in **NVS** (survives reboot). WAV playback and beeps are scaled before I2S.
+- Assign **volume up** / **volume down** tags by **UID** (works with Bambu spool MIFARE tags — firmware only reads the UID, not encrypted sectors).
+- **One step per tap:** lift the tag off the reader between changes; holding the same tag does not repeat.
+- Volume tags **never** play animal sounds (handled before the SD mapping).
+- **FeatherS3 + Wi-Fi:** open **`http://nfcnoisy.local/`** — last scanned UID, volume slider, assign/remove control tags.
+- **Serial** (any `*_nfcnoisy` env): `help`, `vol`, `vol 50`, `vol list`, `vol up`, `vol down`, `vol rm up <UID>`, etc.
+
 ## WAV format
 
 Prefer **22050 Hz, mono, 16-bit PCM**. Stereo and 44100 Hz also work.

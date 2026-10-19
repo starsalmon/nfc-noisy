@@ -1,6 +1,7 @@
 #include "audio.h"
 
 #include "pins.h"
+#include "volume.h"
 
 #if defined(NFCNOISY_WIFI_OTA)
 #include "wifi_ota.h"
@@ -56,6 +57,10 @@ void audio_beep(int freq_hz, int duration_ms, int amp16) {
     if (amp16 > 8000) {
         amp16 = 8000;
     }
+    amp16 = volume_scale_amp(amp16);
+    if (amp16 < 1) {
+        return;
+    }
     i2s.configureTX(rate, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
 
     const int frames_total = (int)(rate * (uint32_t)duration_ms / 1000);
@@ -105,7 +110,8 @@ static void audio_sweep(int f0, int f1, int duration_ms, int amp16) {
             if (phase > 2.0f * 3.1415926f) {
                 phase -= 2.0f * 3.1415926f;
             }
-            const int32_t s = (int32_t)((sinf(phase) * (float)amp16)) << 16;
+            int32_t s = (int32_t)(sinf(phase) * (float)volume_scale_amp(amp16)) << 16;
+            s = volume_scale_i32(s);
             buf[i * 2] = s;
             buf[i * 2 + 1] = s;
         }
@@ -268,29 +274,29 @@ bool audio_play_wav(const char *path) {
             frames = (size_t)n / 4;
             const int16_t *src = reinterpret_cast<const int16_t *>(in);
             for (size_t i = 0; i < frames; i++) {
-                out[i * 2] = ((int32_t)src[i * 2]) << 16;
-                out[i * 2 + 1] = ((int32_t)src[i * 2 + 1]) << 16;
+                out[i * 2] = volume_scale_i32(((int32_t)src[i * 2]) << 16);
+                out[i * 2 + 1] = volume_scale_i32(((int32_t)src[i * 2 + 1]) << 16);
             }
         } else if (info.bits == 16 && info.channels == 1) {
             frames = (size_t)n / 2;
             const int16_t *src = reinterpret_cast<const int16_t *>(in);
             for (size_t i = 0; i < frames; i++) {
-                const int32_t s = ((int32_t)src[i]) << 16;
+                const int32_t s = volume_scale_i32(((int32_t)src[i]) << 16);
                 out[i * 2] = s;
                 out[i * 2 + 1] = s;
             }
         } else if (info.bits == 8 && info.channels == 1) {
             frames = (size_t)n;
             for (size_t i = 0; i < frames; i++) {
-                const int32_t s = ((int32_t)((int)in[i] - 128)) << 24;
+                const int32_t s = volume_scale_i32(((int32_t)((int)in[i] - 128)) << 24);
                 out[i * 2] = s;
                 out[i * 2 + 1] = s;
             }
         } else {
             frames = (size_t)n / 2;
             for (size_t i = 0; i < frames; i++) {
-                out[i * 2] = ((int32_t)((int)in[i * 2] - 128)) << 24;
-                out[i * 2 + 1] = ((int32_t)((int)in[i * 2 + 1] - 128)) << 24;
+                out[i * 2] = volume_scale_i32(((int32_t)((int)in[i * 2] - 128)) << 24);
+                out[i * 2 + 1] = volume_scale_i32(((int32_t)((int)in[i * 2 + 1] - 128)) << 24);
             }
         }
         write_all(reinterpret_cast<const uint8_t *>(out), frames * 8);

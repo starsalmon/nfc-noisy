@@ -2,8 +2,12 @@
 #include "board_power.h"
 #include "mapping.h"
 #include "nfc.h"
+#include "nfc_session.h"
 #include "pins.h"
+#include "serial_config.h"
 #include "status_led.h"
+#include "volume.h"
+#include "volume_tags.h"
 #include "wifi_ota.h"
 
 #include <Arduino.h>
@@ -88,8 +92,30 @@ static void finish_setup() {
     led_ready();
 }
 
+static bool handle_volume_card(const char *uid) {
+    const VolumeTagDir dir = volume_tag_direction(uid);
+    if (dir == VolumeTagDir::None) {
+        return false;
+    }
+    if (dir == VolumeTagDir::Up) {
+        volume_step_up();
+    } else {
+        volume_step_down();
+    }
+    Serial.printf("Volume %d%% (%s tag)\n", volume_get_percent(),
+                  dir == VolumeTagDir::Up ? "UP" : "DOWN");
+    led_play();
+    volume_play_feedback();
+    restore_idle_led();
+    return true;
+}
+
 static void handle_card(const char *uid) {
     Serial.printf("Card %s\n", uid);
+
+    if (handle_volume_card(uid)) {
+        return;
+    }
 
     if (mode == Mode::LearnSetup) {
         mapping_set_setup_uid(uid);
@@ -160,6 +186,9 @@ void setup() {
     Serial.println("\nNFCNoisy  PN532 SPI + MAX98357A + SD");
     Serial.printf("Board: %s\n", ARDUINO_BOARD);
 
+    volume_begin();
+    volume_tags_begin();
+
     led_begin();
 
     if (audio_begin()) {
@@ -222,6 +251,8 @@ void setup() {
 }
 
 void loop() {
+    serial_config_poll();
+
 #if defined(NFCNOISY_WIFI_OTA)
     wifi_ota_loop();
     if (wifi_ota_active()) {
@@ -237,6 +268,7 @@ void loop() {
 
     char uid[kUidLen];
     if (nfc_poll(uid, sizeof(uid))) {
+        nfc_session_set_last_uid(uid);
         if (!card_held || strcasecmp(uid, last_uid) != 0) {
             strncpy(last_uid, uid, kUidLen - 1);
             last_uid[kUidLen - 1] = '\0';
