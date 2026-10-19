@@ -18,7 +18,8 @@ static const int PIN_PN532_SS = 5;  // SS / A4
 static const int PIN_PN532_RST = 14; // T14
 
 #define NFCNOISY_STATUS_RGB_BUILTIN 1
-// RGB_PWR (LDO2) and RGB_DATA come from variant pins_arduino.h (GPIO 39 / 40).
+// RGB_PWR (GPIO 39) enables LDO2 — also feeds onboard NeoPixel (GPIO 40).
+// Firmware enables LDO2 once at boot; never disable it when peripherals use LDO2 3V3.
 
 static const uint32_t SPI_SD_HZ = 4000000;
 

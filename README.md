@@ -11,6 +11,13 @@ Tap an NFC card, play that animal’s sound from an SD card.
 
 Wiring: [`WIRING.md`](WIRING.md). Per-board GPIO: [`include/boards/`](include/boards/). SD layout: [`sd/README.md`](sd/README.md).
 
+### FeatherS3 power (owner harness)
+
+| Connection | Notes |
+|------------|--------|
+| **LDO2 3.3 V** pin | **MAX98357A**, **PN532**, and **SD** module **VCC** (common 3.3 V rail) |
+| **GPIO 39** (RGB_PWR) | Must stay **HIGH** — firmware enables LDO2 at boot; status colours use the NeoPixel only |
+
 ## Flash (FeatherS3)
 
 1. Copy Wi-Fi / OTA secrets (gitignored):

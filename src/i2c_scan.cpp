@@ -1,3 +1,5 @@
+#include "board_power.h"
+
 #include <Arduino.h>
 #include <Wire.h>
 
@@ -13,6 +15,8 @@
 
 void setup()
 {
+    board_power_early_init();
+
     Serial.begin(115200);
     delay(1000);
 
