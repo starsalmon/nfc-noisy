@@ -1,3 +1,5 @@
+#include "board_power.h"
+
 #include <Arduino.h>
 #include <Wire.h>
 
@@ -46,6 +48,8 @@ static void try_firmware(uint8_t addr) {
 }
 
 void setup() {
+    board_power_early_init();
+
     Serial.begin(115200);
     delay(1500);
     Serial.println("\nPN532 I2C deep probe");

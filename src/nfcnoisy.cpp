@@ -1,4 +1,5 @@
 #include "audio.h"
+#include "board_power.h"
 #include "mapping.h"
 #include "nfc.h"
 #include "pins.h"
@@ -152,6 +153,8 @@ static void handle_card(const char *uid) {
 }
 
 void setup() {
+    board_power_early_init();
+
     Serial.begin(115200);
     delay(1200);
     Serial.println("\nNFCNoisy  PN532 SPI + MAX98357A + SD");

@@ -21,7 +21,10 @@ Board: **Unexpected Maker FeatherS3** (ESP32-S3, 16 MB flash, 8 MB PSRAM)
 | **MOSI** | 35 | SPI MOSI (PN532 + SD) |
 | **SCK** | 36 | SPI SCK |
 | **MISO** | 37 | SPI MISO |
-| *(onboard)* | 39 / 40 | RGB power / NeoPixel data — firmware only |
+| **LDO2** / RGB_PWR | 39 | Enables **LDO2 3.3 V** (firmware holds HIGH) |
+| *(onboard)* | 40 | NeoPixel data |
+
+**Peripheral power:** Wire **MAX98357A VIN**, **PN532 VCC**, and **SD VCC** to the Feather **LDO2 3.3 V** output (not the main 3V3 pin if you share the owner’s harness). Firmware turns **GPIO 39 (RGB_PWR)** on at boot and leaves it on; dimming the status LED is done via the NeoPixel only.
 
 **Do not use for peripherals:** GPIO **2** (VBAT sense), **4** (ambient light), **8** / **9** (STEMMA I2C), **13** (blue LED), **34** (VBUS), **39** / **40** (RGB), **43** / **44** (USB-serial UART).
 
@@ -32,7 +35,7 @@ Board: **Unexpected Maker FeatherS3** (ESP32-S3, 16 MB flash, 8 MB PSRAM)
 | DIN | **A0** (GPIO 1) |
 | BCLK | **A5** (GPIO 6) |
 | LRC | **A6** (GPIO 7) |
-| VIN | 5 V (louder) or 3.3 V |
+| VIN | **LDO2 3.3 V** (this build) or 5 V / main 3V3 if wired separately |
 | GND | GND |
 | SD (shutdown) | **3.3 V** (high = amp on) |
 | GAIN | float (~12 dB) unless too loud |
