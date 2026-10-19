@@ -2,6 +2,10 @@
 
 #include "pins.h"
 
+#if defined(NFCNOISY_WIFI_OTA)
+#include "wifi_ota.h"
+#endif
+
 #include <Arduino.h>
 #include <ESP_I2S.h>
 #include <FS.h>
@@ -37,6 +41,11 @@ void audio_beep(int freq_hz, int duration_ms, int amp16) {
     if (!i2s_ok) {
         return;
     }
+#if defined(NFCNOISY_WIFI_OTA)
+    if (wifi_ota_active()) {
+        return;
+    }
+#endif
     const uint32_t rate = 22050;
     if (freq_hz < 80) {
         freq_hz = 80;
@@ -201,6 +210,12 @@ bool audio_play_wav(const char *path) {
     if (!i2s_ok || path == nullptr || path[0] == '\0') {
         return false;
     }
+
+#if defined(NFCNOISY_WIFI_OTA)
+    if (wifi_ota_active()) {
+        return false;
+    }
+#endif
 
     File f = SD.open(path, FILE_READ);
     if (!f) {

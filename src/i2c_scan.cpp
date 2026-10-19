@@ -1,8 +1,15 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define SDA_PIN 6
-#define SCL_PIN 7
+#ifndef SCAN_SDA
+#define SCAN_SDA 6
+#endif
+#ifndef SCAN_SCL
+#define SCAN_SCL 7
+#endif
+
+#define SDA_PIN SCAN_SDA
+#define SCL_PIN SCAN_SCL
 
 void setup()
 {

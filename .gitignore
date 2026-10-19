@@ -7,5 +7,6 @@
 .DS_Store
 compile_commands.json
 platformio_private.ini
+include/secrets.h
 __pycache__/
 *.pyc

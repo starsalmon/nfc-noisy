@@ -1,111 +1,126 @@
 # NFCNoisy wiring
 
-Board: **Unexpected Maker TinyC6** (ESP32-C6)
-
-**Source of truth:** `src/pins.h`
-
-If your SPI wires do not match this table, change `pins.h` — do not guess in firmware.
+Per-board GPIO sources: `include/boards/pins_*.h`.
 
 ---
 
-## Quick pin map
+## FeatherS3 (default build)
 
-| GPIO | Function | Notes |
-|------|----------|--------|
-| **5** | I2S DIN | MAX98357A **DIN** |
-| **2** | I2S BCLK | MAX98357A **BCLK** |
-| **3** | I2S LRCLK | MAX98357A **LRC** / WS |
-| **6** | PN532 SS | Chip select (was I2C SDA) |
-| **7** | PN532 RST | RSTPDN, active low (was I2C SCL) |
-| **18** | SD CS | TinyC6 SS |
-| **19** | SPI SCK | Shared: PN532 + SD |
-| **20** | SPI MISO | Shared |
-| **21** | SPI MOSI | Shared |
-| **22** | RGB power | Onboard — firmware drives this |
-| **23** | RGB data | Onboard NeoPixel — do not reuse |
+Board: **Unexpected Maker FeatherS3** (ESP32-S3, 16 MB flash, 8 MB PSRAM)
 
-IO0/IO1 are TinyC6 32 kHz crystal pins — do not use them for I2S. DIN is on **IO5**.
+### Quick pin map
 
----
+| Feather label | GPIO | Function |
+|---------------|------|----------|
+| **A0** | 1 | I2S **DIN** → MAX98357A |
+| **A5** | 6 | I2S **BCLK** |
+| **A6** | 7 | I2S **LRCLK** (LRC / WS) |
+| **SS** (A4) | 5 | PN532 **NSS** |
+| **A9** | 10 | microSD **CS** |
+| **T14** | 14 | PN532 **RSTPDN** (or tie RST to 3.3 V and set `PIN_PN532_RST` to `-1` in `pins_feathers3.h`) |
+| **MOSI** | 35 | SPI MOSI (PN532 + SD) |
+| **SCK** | 36 | SPI SCK |
+| **MISO** | 37 | SPI MISO |
+| *(onboard)* | 39 / 40 | RGB power / NeoPixel data — firmware only |
 
-## Power
+**Do not use for peripherals:** GPIO **2** (VBAT sense), **4** (ambient light), **8** / **9** (STEMMA I2C), **13** (blue LED), **34** (VBUS), **39** / **40** (RGB), **43** / **44** (USB-serial UART).
+
+### MAX98357A
+
+| MAX98357A | FeatherS3 |
+|-----------|-----------|
+| DIN | **A0** (GPIO 1) |
+| BCLK | **A5** (GPIO 6) |
+| LRC | **A6** (GPIO 7) |
+| VIN | 5 V (louder) or 3.3 V |
+| GND | GND |
+| SD (shutdown) | **3.3 V** (high = amp on) |
+| GAIN | float (~12 dB) unless too loud |
+
+### PN532 (SPI)
+
+Set module switches to **SPI** (SEL0 OFF, SEL1 ON on typical red boards).
+
+| PN532 | FeatherS3 |
+|-------|-----------|
+| SCK | **SCK** (GPIO 36) |
+| MISO | **MISO** (GPIO 37) |
+| MOSI | **MOSI** (GPIO 35) |
+| SS | **SS** (GPIO 5) |
+| RSTPDN | **T14** (GPIO 14) or 3.3 V |
+| VCC | 3.3 V |
+| GND | GND |
+
+### microSD (SPI)
+
+Shared SCK / MISO / MOSI with PN532; separate chip select.
+
+| SD module | FeatherS3 |
+|-----------|-----------|
+| SCK | GPIO **36** |
+| MISO | GPIO **37** |
+| MOSI | GPIO **35** |
+| CS | **A9** (GPIO 10) |
+| VCC | 3.3 V |
+| GND | GND |
+
+Use a **3.3 V** SPI module (avoid 5 V level shifters that lock MISO).
+
+### Power
 
 | Rail | Connect |
 |------|---------|
-| TinyC6 | USB |
-| PN532 | **3.3 V** + GND (do not feed 5 V logic into the C6) |
-| SD module | **3.3 V** + GND (3.3 V SPI module, not a 5 V shifter that hogs MISO) |
-| MAX98357A VIN | **5 V** for more volume, or 3.3 V |
-| MAX98357A GND | Common GND with TinyC6 |
-
-Common **GND** across TinyC6, PN532, SD, and DAC.
+| FeatherS3 | USB-C |
+| PN532 | 3.3 V + GND |
+| SD | 3.3 V + GND |
+| MAX98357A | 5 V or 3.3 V + common GND |
 
 ---
 
-## MAX98357A
+## TinyC6
 
-| MAX98357A | TinyC6 |
-|-----------|--------|
-| DIN | GPIO **5** |
-| BCLK | GPIO **2** |
-| LRC | GPIO **3** |
-| VIN | 5 V or 3.3 V |
-| GND | GND |
-| SD (shutdown) | **3.3 V** (must be high or the amp stays off) |
-| GAIN | float (~12 dB) unless it is too loud |
+Board: **Unexpected Maker TinyC6** (ESP32-C6)
 
-Speaker between **OUT+** and **OUT−** (do not ground either speaker lead).
+| GPIO | Function |
+|------|----------|
+| **5** | I2S DIN |
+| **2** | I2S BCLK |
+| **3** | I2S LRCLK |
+| **6** | PN532 SS |
+| **7** | PN532 RST |
+| **18** | SD CS |
+| **19** | SPI SCK |
+| **20** | SPI MISO |
+| **21** | SPI MOSI |
+| **22** / **23** | Onboard RGB power / data |
 
----
-
-## PN532 (SPI)
-
-Same module as before — set it to **SPI**, not I2C.
-
-Typical Elechouse / cheap red board switches:
-
-| SEL0 | SEL1 | Mode |
-|------|------|------|
-| OFF | ON | **SPI** |
-| ON | OFF | I2C (old, unused) |
-
-| PN532 | TinyC6 |
-|-------|--------|
-| SCK | GPIO **19** |
-| MISO | GPIO **20** |
-| MOSI | GPIO **21** |
-| SS / NSS | GPIO **6** |
-| RSTPDN / RST | GPIO **7** (or tie to 3.3 V and set `PIN_PN532_RST` to `-1`) |
-| VCC | 3.3 V |
-| GND | GND |
-
-IRQ can stay unconnected (firmware polls).
+IO **0** / **1** are the 32 kHz crystal — do not use for I2S.
 
 ---
 
-## microSD (SPI)
+## Classic ESP32 DevKit (esp32dev)
 
-PN532 and the SD card **share** SCK / MISO / MOSI. Each has its own CS.
-
-| SD module | TinyC6 |
-|-----------|--------|
-| SCK | GPIO **19** |
-| MISO | GPIO **20** |
-| MOSI | GPIO **21** |
-| CS | GPIO **18** |
-| VCC | 3.3 V |
-| GND | GND |
-
-Format the card **FAT32**. Put WAVs in `/sounds/` — see `sd/README.md`.
-
-Cheap 5 V SD adapters with onboard level shifters sometimes **never release MISO**, which breaks the PN532 on the same bus. Use a 3.3 V module (or one that actually tri-states MISO).
+| GPIO | Function |
+|------|----------|
+| **25** | I2S DIN |
+| **26** | I2S BCLK |
+| **27** | I2S LRCLK |
+| **18** | SPI SCK |
+| **19** | SPI MISO |
+| **23** | SPI MOSI |
+| **15** | SD CS |
+| **5** | PN532 SS |
+| **4** | PN532 RST |
+| **2** | Onboard LED (active low) |
 
 ---
 
 ## WAV files
 
-16-bit PCM WAV, 22050 or 44100 Hz, mono or stereo. Example:
+16-bit PCM WAV, 22050 or 44100 Hz, mono or stereo:
 
 ```bash
 ffmpeg -i cat.mp3 -ar 22050 -ac 1 -sample_fmt s16 cat.wav
 ```
+
+Format SD card **FAT32**. Put WAVs in `/sounds/` — see `sd/README.md`.
