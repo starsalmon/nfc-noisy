@@ -100,6 +100,7 @@ static void audio_sweep(int f0, int f1, int duration_ms, int amp16) {
     const int frames_total = (int)(rate * (uint32_t)duration_ms / 1000);
     int32_t buf[128];
     float phase = 0.0f;
+    const int scaled_amp = volume_scale_amp(amp16);
     int written = 0;
     while (written < frames_total) {
         const int frames = min(64, frames_total - written);
@@ -110,8 +111,8 @@ static void audio_sweep(int f0, int f1, int duration_ms, int amp16) {
             if (phase > 2.0f * 3.1415926f) {
                 phase -= 2.0f * 3.1415926f;
             }
-            int32_t s = (int32_t)(sinf(phase) * (float)volume_scale_amp(amp16)) << 16;
-            s = volume_scale_i32(s);
+            const int16_t pcm = (int16_t)(sinf(phase) * (float)scaled_amp);
+            const int32_t s = volume_pcm16_to_i32(pcm);
             buf[i * 2] = s;
             buf[i * 2 + 1] = s;
         }
@@ -212,6 +213,16 @@ static void write_all(const uint8_t *data, size_t len) {
     }
 }
 
+static size_t wav_frame_bytes(const WavInfo &info) {
+    if (info.bits == 16) {
+        return (size_t)info.channels * 2;
+    }
+    if (info.bits == 8) {
+        return (size_t)info.channels;
+    }
+    return 0;
+}
+
 bool audio_play_wav(const char *path) {
     if (!i2s_ok || path == nullptr || path[0] == '\0') {
         return false;
@@ -246,57 +257,92 @@ bool audio_play_wav(const char *path) {
         return false;
     }
 
-    Serial.printf("Play %s  %lu Hz  %u-bit  %u ch\n", path, (unsigned long)info.sample_rate, info.bits,
-                  info.channels);
+    const size_t frame_bytes = wav_frame_bytes(info);
+    if (frame_bytes == 0) {
+        f.close();
+        return false;
+    }
+
+    Serial.printf("WAV play %s  PCM %u-bit %u ch %lu Hz  data@%lu len=%lu  vol=%d%%\n", path, info.bits,
+                  info.channels, (unsigned long)info.sample_rate, (unsigned long)info.data_offset,
+                  (unsigned long)info.data_size, volume_get_percent());
 
     i2s.configureTX(info.sample_rate, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
     f.seek(info.data_offset);
 
     uint8_t in[256];
-    int32_t out[256];  // 128 stereo frames
+    uint8_t carry[4];
+    size_t carry_len = 0;
+    int32_t out[256];
     uint32_t left = info.data_size;
-    while (left > 0) {
-        size_t max_in = sizeof(in);
-        if (info.bits == 16 && info.channels == 1) {
-            max_in = 256;
-        } else if (info.bits == 8) {
-            max_in = 128;
+
+    while (left > 0 || carry_len > 0) {
+        size_t want = sizeof(in);
+        if (left > 0) {
+            want = (size_t)min((uint32_t)sizeof(in), left);
+            const int n = f.read(in, want);
+            if (n <= 0) {
+                break;
+            }
+            left -= (uint32_t)n;
+            want = (size_t)n;
+        } else {
+            want = 0;
         }
-        const size_t want = (size_t)min((uint32_t)max_in, left);
-        const int n = f.read(in, want);
-        if (n <= 0) {
+
+        uint8_t chunk[260];
+        size_t chunk_len = 0;
+        if (carry_len > 0) {
+            memcpy(chunk, carry, carry_len);
+            chunk_len = carry_len;
+            carry_len = 0;
+        }
+        if (want > 0) {
+            memcpy(chunk + chunk_len, in, want);
+            chunk_len += want;
+        }
+        if (chunk_len == 0) {
             break;
         }
-        left -= (uint32_t)n;
 
+        const size_t complete = (chunk_len / frame_bytes) * frame_bytes;
+        carry_len = chunk_len - complete;
+        if (carry_len > 0) {
+            memcpy(carry, chunk + complete, carry_len);
+        }
+        if (complete == 0) {
+            continue;
+        }
+
+        const uint8_t *pcm = chunk;
         size_t frames = 0;
         if (info.bits == 16 && info.channels == 2) {
-            frames = (size_t)n / 4;
-            const int16_t *src = reinterpret_cast<const int16_t *>(in);
+            frames = complete / 4;
+            const int16_t *src = reinterpret_cast<const int16_t *>(pcm);
             for (size_t i = 0; i < frames; i++) {
-                out[i * 2] = volume_scale_i32(((int32_t)src[i * 2]) << 16);
-                out[i * 2 + 1] = volume_scale_i32(((int32_t)src[i * 2 + 1]) << 16);
+                out[i * 2] = volume_pcm16_to_i32(src[i * 2]);
+                out[i * 2 + 1] = volume_pcm16_to_i32(src[i * 2 + 1]);
             }
         } else if (info.bits == 16 && info.channels == 1) {
-            frames = (size_t)n / 2;
-            const int16_t *src = reinterpret_cast<const int16_t *>(in);
+            frames = complete / 2;
+            const int16_t *src = reinterpret_cast<const int16_t *>(pcm);
             for (size_t i = 0; i < frames; i++) {
-                const int32_t s = volume_scale_i32(((int32_t)src[i]) << 16);
+                const int32_t s = volume_pcm16_to_i32(src[i]);
                 out[i * 2] = s;
                 out[i * 2 + 1] = s;
             }
         } else if (info.bits == 8 && info.channels == 1) {
-            frames = (size_t)n;
+            frames = complete;
             for (size_t i = 0; i < frames; i++) {
-                const int32_t s = volume_scale_i32(((int32_t)((int)in[i] - 128)) << 24);
+                const int32_t s = volume_pcm8_to_i32((int8_t)((int)pcm[i] - 128));
                 out[i * 2] = s;
                 out[i * 2 + 1] = s;
             }
         } else {
-            frames = (size_t)n / 2;
+            frames = complete / 2;
             for (size_t i = 0; i < frames; i++) {
-                out[i * 2] = volume_scale_i32(((int32_t)((int)in[i * 2] - 128)) << 24);
-                out[i * 2 + 1] = volume_scale_i32(((int32_t)((int)in[i * 2 + 1] - 128)) << 24);
+                out[i * 2] = volume_pcm8_to_i32((int8_t)((int)pcm[i * 2] - 128));
+                out[i * 2 + 1] = volume_pcm8_to_i32((int8_t)((int)pcm[i * 2 + 1] - 128));
             }
         }
         write_all(reinterpret_cast<const uint8_t *>(out), frames * 8);
