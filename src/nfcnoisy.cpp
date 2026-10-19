@@ -3,6 +3,7 @@
 #include "nfc.h"
 #include "pins.h"
 #include "status_led.h"
+#include "wifi_ota.h"
 
 #include <Arduino.h>
 #include <FS.h>
@@ -153,7 +154,8 @@ static void handle_card(const char *uid) {
 void setup() {
     Serial.begin(115200);
     delay(1200);
-    Serial.println("\nNFCNoisy  NodeMCU ESP32-S  PN532 SPI + MAX98357A + SD");
+    Serial.println("\nNFCNoisy  PN532 SPI + MAX98357A + SD");
+    Serial.printf("Board: %s\n", ARDUINO_BOARD);
 
     led_begin();
 
@@ -210,9 +212,21 @@ void setup() {
         Serial.printf("Ready. Setup card %s\n", mapping_setup_uid());
         mapping_dump();
     }
+
+#if defined(NFCNOISY_WIFI_OTA)
+    wifi_ota_begin();
+#endif
 }
 
 void loop() {
+#if defined(NFCNOISY_WIFI_OTA)
+    wifi_ota_loop();
+    if (wifi_ota_active()) {
+        delay(10);
+        return;
+    }
+#endif
+
     if (!nfc_ok) {
         delay(500);
         return;
